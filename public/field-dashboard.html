@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Officer Dashboard - Typhoid Screening Portal</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f1f5f9; margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: #0f172a; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 1.25rem; }
+        .btn-logout { background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-logout:hover { background: #dc2626; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stat-label { font-size: 0.875rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
+        .stat-val { font-size: 1.8rem; font-weight: bold; color: #2563eb; margin-top: 5px; }
+        .form-section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 25px; }
+        .form-section h3 { margin-top: 0; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; color: #0f172a; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; color: #334155; font-size: 0.9rem; }
+        input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.95rem; }
+        .btn-submit { background: #16a34a; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 1rem; }
+        .btn-submit:hover { background: #15803d; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        th { background-color: #f8fafc; color: #475569; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .msg { padding: 12px; border-radius: 4px; margin-bottom: 15px; display: none; }
+        .msg-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .msg-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>Food Vendor Health Screening Portal</h1>
+                <small id="welcomeMsg">Welcome, Field Officer</small>
+            </div>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+
+        <!-- Metric Cards -->
+        <div class="grid">
+            <div class="card">
+                <div class="stat-label">Days Worked</div>
+                <div class="stat-val" id="statDays">0</div>
+            </div>
+            <div class="card">
+                <div class="stat-label">Total Screened</div>
+                <div class="stat-val" id="statScreened">0</div>
+            </div>
+            <div class="card">
+                <div class="stat-label">Total Earned</div>
+                <div class="stat-val" id="statEarned">GH₵0</div>
+            </div>
+        </div>
+
+        <!-- Activity Submission Form -->
+        <div class="form-section">
+            <h3>Record Daily Screening Activity</h3>
+            <div id="statusMsg" class="msg"></div>
+            <form id="recordForm">
+                <div class="form-group">
+                    <label for="screening_date">Date of Screening</label>
+                    <input type="date" id="screening_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="town_name">Town / Community Name</label>
+                    <input type="text" id="town_name" placeholder="e.g. Akropong, Larteh, Mamfe, Adawso" required>
+                </div>
+                <div class="form-group">
+                    <label for="food_handlers_screened">Number of Food Handlers Screened</label>
+                    <input type="number" id="food_handlers_screened" min="0" placeholder="e.g. 45" required>
+                </div>
+                <button type="submit" class="btn-submit">Submit Record (GH₵100 Allowance Earned)</button>
+            </form>
+        </div>
+
+        <!-- Submissions Table -->
+        <h3 style="color: #0f172a; margin-bottom: 10px;">My Submitted Records</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Town</th>
+                    <th>Handlers Screened</th>
+                    <th>Allowance Earned</th>
+                </tr>
+            </thead>
+            <tbody id="recordsTable">
+                <tr><td colspan="4" style="text-align:center;">Loading submissions...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Verify officer session
+            const userRes = await fetch("/api/me");
+            const userData = await userRes.json();
+            if (!userData.loggedIn || userData.user.role !== "field_personnel") {
+                window.location.href = "/login.html";
+                return;
+            }
+            document.getElementById("welcomeMsg").textContent = `Officer: ${userData.user.name}`;
+
+            // Default screening date to today
+            document.getElementById("screening_date").valueAsDate = new Date();
+
+            loadSummary();
+            loadRecords();
+        });
+
+        async function loadSummary() {
+            try {
+                const res = await fetch("/api/field/summary");
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById("statDays").textContent = data.summary.days_worked || 0;
+                    document.getElementById("statScreened").textContent = data.summary.total_screened || 0;
+                    document.getElementById("statEarned").textContent = `GH₵${data.summary.total_earned || 0}`;
+                }
+            } catch (err) {
+                console.error("Error loading field officer summary:", err);
+            }
+        }
+
+        async function loadRecords() {
+            try {
+                const res = await fetch("/api/field/my-records");
+                const data = await res.json();
+                const tbody = document.getElementById("recordsTable");
+                tbody.innerHTML = "";
+
+                if (!data.success || !data.records || data.records.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#64748b;">No screening entries recorded yet.</td></tr>`;
+                    return;
+                }
+
+                data.records.forEach(r => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${r.screening_date}</td>
+                        <td>${r.town_name || 'N/A'}</td>
+                        <td>${r.food_handlers_screened}</td>
+                        <td><strong>GH₵${r.amount_earned}</strong></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("Error loading submissions:", err);
+            }
+        }
+
+        document.getElementById("recordForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const msg = document.getElementById("statusMsg");
+            msg.style.display = "none";
+
+            const payload = {
+                screening_date: document.getElementById("screening_date").value,
+                town_name: document.getElementById("town_name").value,
+                food_handlers_screened: document.getElementById("food_handlers_screened").value
+            };
+
+            try {
+                const res = await fetch("/api/field/daily-record", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    msg.className = "msg msg-success";
+                    msg.textContent = data.message;
+                    msg.style.display = "block";
+                    document.getElementById("town_name").value = "";
+                    document.getElementById("food_handlers_screened").value = "";
+                    loadSummary();
+                    loadRecords();
+                } else {
+                    msg.className = "msg msg-error";
+                    msg.textContent = data.message;
+                    msg.style.display = "block";
+                }
+            } catch (err) {
+                msg.className = "msg msg-error";
+                msg.textContent = "Unable to connect to server.";
+                msg.style.display = "block";
+            }
+        });
+
+        document.getElementById("logoutBtn").addEventListener("click", async () => {
+            await fetch("/api/logout", { method: "POST" });
+            window.location.href = "/login.html";
+        });
+    </script>
+</body>
+</html>

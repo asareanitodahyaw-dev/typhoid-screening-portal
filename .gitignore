@@ -1,0 +1,9 @@
+node_modules/
+.env
+*.log
+.netlify/
+
+# Ignore SQLite files if any exist locally
+database/screening.db
+database/*.db
+database/*-backup*.db
