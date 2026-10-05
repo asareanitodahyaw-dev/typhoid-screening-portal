@@ -33,34 +33,41 @@
         </form>
     </div>
 
-    <script>
-        document.getElementById("loginForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const alert = document.getElementById("alert");
-            alert.style.display = "none";
+   <script>
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorMsg = document.getElementById("errorMsg");
+        errorMsg.style.display = "none";
 
-            const username = document.getElementById("username").value;
-            const password = document.getElementById("password").value;
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
 
-            try {
-                const res = await fetch("/api/login", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ username, password })
-                });
+        if (!username || !password) {
+            errorMsg.textContent = "Username and password required.";
+            errorMsg.style.display = "block";
+            return;
+        }
 
-                const data = await res.json();
-                if (data.success) {
-                    window.location.href = data.redirect;
-                } else {
-                    alert.textContent = data.message;
-                    alert.style.display = "block";
-                }
-            } catch (err) {
-                alert.textContent = "Could not connect to server.";
-                alert.style.display = "block";
+        try {
+            const res = await fetch("/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                window.location.href = data.redirect;
+            } else {
+                errorMsg.textContent = data.message || "Invalid credentials.";
+                errorMsg.style.display = "block";
             }
-        });
-    </script>
+        } catch (err) {
+            errorMsg.textContent = "Unable to connect to login server.";
+            errorMsg.style.display = "block";
+        }
+    });
+</script>
 </body>
 </html>
