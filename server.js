@@ -8,7 +8,7 @@ require("dotenv").config();
 const supabase = require("./database/database");
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 
 app.set("trust proxy", 1);
 app.use(express.json());
@@ -19,7 +19,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use(
     session({
-        secret: process.env.SESSION_SECRET || "Akuapem-North-Screening-Secret-2026",
+        secret: process.env.SESSION_SECRET || "default_local_dev_secret_key_12345",
         resave: false,
         saveUninitialized: false,
         cookie: {
@@ -270,7 +270,6 @@ app.get("/api/admin/summary", requireAdmin, async (req, res) => {
     }
 });
 
-// Master Activity Log Endpoint (Fetch all field records with officer & town names)
 app.get("/api/admin/all-records", requireAdmin, async (req, res) => {
     try {
         const { data: records, error } = await supabase
@@ -299,7 +298,6 @@ app.get("/api/admin/all-records", requireAdmin, async (req, res) => {
     }
 });
 
-// Dropdown Endpoint (Fetch all active field officers)
 app.get("/api/admin/personnel-list", requireAdmin, async (req, res) => {
     try {
         const { data: personnel, error } = await supabase
