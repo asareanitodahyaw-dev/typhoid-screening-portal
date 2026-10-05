@@ -57,6 +57,7 @@
                 const data = await res.json();
 
                 if (data.success) {
+                    localStorage.setItem("user", JSON.stringify(data.user));
                     window.location.href = data.redirect;
                 } else {
                     errorMsg.textContent = data.message || "Invalid username or password.";
@@ -65,7 +66,6 @@
                     submitBtn.textContent = "Log In";
                 }
             } catch (err) {
-                console.error("Login Error:", err);
                 errorMsg.textContent = "Unable to connect to authentication server.";
                 errorMsg.style.display = "block";
                 submitBtn.disabled = false;

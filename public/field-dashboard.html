@@ -104,31 +104,41 @@
     </div>
 
     <script>
+        function getAuthHeaders() {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            return {
+                'Content-Type': 'application/json',
+                'X-User-Role': user.role || '',
+                'X-User-Id': String(user.id || ''),
+                'X-User-Name': user.name || '',
+                'X-User-Username': user.username || ''
+            };
+        }
+
         async function checkAuth() {
-            try {
-                const res = await fetch('/api/me');
-                const data = await res.json();
-                if (!data.loggedIn || data.user.role !== 'field_personnel') {
-                    window.location.href = '/login.html';
-                } else {
-                    document.getElementById('officerName').textContent = `Welcome, ${data.user.name}`;
-                }
-            } catch (err) {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (!user.role) {
                 window.location.href = '/login.html';
+                return;
             }
+            if (user.role === 'admin') {
+                window.location.href = '/admin-dashboard.html';
+                return;
+            }
+            document.getElementById('officerName').textContent = `Welcome, ${user.name}`;
         }
 
         async function loadFieldDashboard() {
             try {
+                const headers = getAuthHeaders();
                 const [summaryRes, recordsRes] = await Promise.all([
-                    fetch('/api/field/summary'),
-                    fetch('/api/field/my-records')
+                    fetch('/api/field/summary', { headers }),
+                    fetch('/api/field/my-records', { headers })
                 ]);
 
                 const summaryData = await summaryRes.json();
                 const recordsData = await recordsRes.json();
 
-                // 1. Render Summary
                 if (summaryData.success) {
                     const s = summaryData.summary;
                     document.getElementById('myDaysWorked').textContent = s.days_worked || 0;
@@ -136,7 +146,6 @@
                     document.getElementById('myTotalEarned').textContent = `GH₵ ${s.total_earned || 0}`;
                 }
 
-                // 2. Render Records Table
                 if (recordsData.success) {
                     renderMyRecordsTable(recordsData.records || []);
                 }
@@ -175,7 +184,7 @@
             try {
                 const res = await fetch('/api/field/daily-record', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({ screening_date, town_name, food_handlers_screened })
                 });
 
@@ -185,6 +194,7 @@
                     msg.textContent = data.message;
                     msg.style.display = 'block';
                     document.getElementById('recordForm').reset();
+                    document.getElementById('screeningDate').valueAsDate = new Date();
                     loadFieldDashboard();
                 } else {
                     msg.className = 'msg msg-error';
@@ -199,6 +209,7 @@
         });
 
         async function logout() {
+            localStorage.removeItem('user');
             await fetch('/api/logout', { method: 'POST' });
             window.location.href = '/login.html';
         }

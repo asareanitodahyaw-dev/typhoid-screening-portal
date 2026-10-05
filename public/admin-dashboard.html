@@ -112,31 +112,41 @@
     </div>
 
     <script>
+        function getAuthHeaders() {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            return {
+                'Content-Type': 'application/json',
+                'X-User-Role': user.role || '',
+                'X-User-Id': String(user.id || ''),
+                'X-User-Name': user.name || '',
+                'X-User-Username': user.username || ''
+            };
+        }
+
         async function checkAuth() {
-            try {
-                const res = await fetch('/api/me');
-                const data = await res.json();
-                if (!data.loggedIn || data.user.role !== 'admin') {
-                    window.location.href = '/login.html';
-                } else {
-                    document.getElementById('adminName').textContent = `Welcome, ${data.user.name}`;
-                }
-            } catch (err) {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (!user.role) {
                 window.location.href = '/login.html';
+                return;
             }
+            if (user.role === 'field_personnel') {
+                window.location.href = '/field-dashboard.html';
+                return;
+            }
+            document.getElementById('adminName').textContent = `Welcome, ${user.name}`;
         }
 
         async function loadAdminDashboard() {
             try {
+                const headers = getAuthHeaders();
                 const [summaryRes, recordsRes] = await Promise.all([
-                    fetch('/api/admin/summary'),
-                    fetch('/api/admin/all-records')
+                    fetch('/api/admin/summary', { headers }),
+                    fetch('/api/admin/all-records', { headers })
                 ]);
 
                 const summaryData = await summaryRes.json();
                 const recordsData = await recordsRes.json();
 
-                // 1. Render Summary Cards
                 if (summaryData.success) {
                     const s = summaryData.summary;
                     document.getElementById('totalOfficers').textContent = s.personnel || 0;
@@ -145,7 +155,6 @@
                     document.getElementById('totalEarned').textContent = `GH₵ ${s.earned || 0}`;
                 }
 
-                // 2. Render Activity Table
                 if (recordsData.success) {
                     renderActivityTable(recordsData.records || []);
                 }
@@ -185,7 +194,7 @@
             try {
                 const res = await fetch('/api/admin/create-field-personnel', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({ full_name, username, password, phone })
                 });
 
@@ -209,6 +218,7 @@
         });
 
         async function logout() {
+            localStorage.removeItem('user');
             await fetch('/api/logout', { method: 'POST' });
             window.location.href = '/login.html';
         }
