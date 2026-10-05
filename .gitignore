@@ -6,4 +6,4 @@ node_modules/
 # Ignore SQLite files if any exist locally
 database/screening.db
 database/*.db
-database/*-backup*.db
+database/*-backup*.db.env 
