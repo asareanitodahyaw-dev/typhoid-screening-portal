@@ -60,20 +60,8 @@ app.get("/login", (req, res) => {
 // --- AUTHENTICATION ENDPOINTS ---
 
 app.post("/api/login", async (req, res) => {
-    // Robust payload extraction across Netlify serverless events
-    let payload = req.body || {};
-    
-    // If req.body came as a raw string, parse it
-    if (typeof payload === "string") {
-        try {
-            payload = JSON.parse(payload);
-        } catch (e) {
-            payload = {};
-        }
-    }
-
-    const username = payload.username || req.query?.username;
-    const password = payload.password || req.query?.password;
+    // req.body is now reliably populated by functions/api.js
+    const { username, password } = req.body || {};
 
     if (!username || !password) {
         return res.status(400).json({ success: false, message: "Username and password required." });
@@ -88,8 +76,6 @@ app.post("/api/login", async (req, res) => {
             .select("*")
             .eq("username", cleanUsername)
             .maybeSingle();
-
-        if (adminErr) console.error("Admin Auth Error:", adminErr);
 
         if (admin) {
             const passwordMatch = await bcrypt.compare(password, admin.password);
@@ -107,8 +93,6 @@ app.post("/api/login", async (req, res) => {
             .eq("active", 1)
             .maybeSingle();
 
-        if (fieldErr) console.error("Field Personnel Auth Error:", fieldErr);
-
         if (personnel) {
             const passwordMatch = await bcrypt.compare(password, personnel.password);
             if (passwordMatch) {
@@ -123,7 +107,6 @@ app.post("/api/login", async (req, res) => {
         return res.status(500).json({ success: false, message: "Internal server error." });
     }
 });
-
 app.get("/api/me", (req, res) => {
     if (!req.session?.user) return res.json({ loggedIn: false });
     return res.json({ loggedIn: true, user: req.session.user });
