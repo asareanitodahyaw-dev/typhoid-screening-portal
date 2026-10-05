@@ -2,6 +2,7 @@ const express = require("express");
 const session = require("express-session");
 const path = require("path");
 const bcrypt = require("bcrypt");
+const bodyParser = require("body-parser");
 const serverless = require("serverless-http");
 require("dotenv").config();
 
@@ -11,6 +12,10 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.set("trust proxy", 1);
+
+// Middleware for parsing JSON and form bodies in serverless
+app.use(bodyParser.json({ limit: "10mb" }));
+app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -55,7 +60,11 @@ app.get("/login", (req, res) => {
 // --- AUTHENTICATION ENDPOINTS ---
 
 app.post("/api/login", async (req, res) => {
-    const { username, password } = req.body;
+    // Handle body fallback for Netlify serverless events
+    const body = req.body || {};
+    const username = body.username;
+    const password = body.password;
+
     if (!username || !password) {
         return res.status(400).json({ success: false, message: "Username and password required." });
     }
