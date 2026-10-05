@@ -60,16 +60,26 @@ app.get("/login", (req, res) => {
 // --- AUTHENTICATION ENDPOINTS ---
 
 app.post("/api/login", async (req, res) => {
-    // Handle body fallback for Netlify serverless events
-    const body = req.body || {};
-    const username = body.username;
-    const password = body.password;
+    // Robust payload extraction across Netlify serverless events
+    let payload = req.body || {};
+    
+    // If req.body came as a raw string, parse it
+    if (typeof payload === "string") {
+        try {
+            payload = JSON.parse(payload);
+        } catch (e) {
+            payload = {};
+        }
+    }
+
+    const username = payload.username || req.query?.username;
+    const password = payload.password || req.query?.password;
 
     if (!username || !password) {
         return res.status(400).json({ success: false, message: "Username and password required." });
     }
 
-    const cleanUsername = username.trim().toLowerCase();
+    const cleanUsername = String(username).trim().toLowerCase();
 
     try {
         // 1. Check Admins
